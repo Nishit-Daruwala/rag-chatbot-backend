@@ -1,4 +1,4 @@
-# rag_chatbot.py - FINAL QDRANT CLOUD VERSION (STABLE)
+# rag_chatbot.py - OPENAI EMBEDDINGS VERSION (LIGHTWEIGHT)
 
 import os
 import uuid
@@ -6,7 +6,6 @@ import time
 from typing import List, Tuple
 
 import PyPDF2
-from sentence_transformers import SentenceTransformer
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -24,6 +23,10 @@ FACT_SIM_THRESHOLD = 0.45
 
 MAX_MEMORY_TURNS = 5
 QDRANT_BATCH_SIZE = 50
+
+# OpenAI Embedding Model
+EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_DIM = 1536  # Dimension for text-embedding-3-small
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -71,8 +74,9 @@ class QdrantVectorDB:
             timeout=60
         )
 
-        self.docs = "documents"
-        self.facts = "facts"
+        # distinct collection names for OpenAI vectors
+        self.docs = "documents_openai"
+        self.facts = "facts_openai"
 
         self._create_collection(self.docs, embedding_dim)
         self._create_collection(self.facts, embedding_dim)
@@ -131,15 +135,39 @@ class QdrantVectorDB:
 
 class RAGChatbot:
     def __init__(self):
-        print("🤖 Initializing RAG Chatbot (Qdrant Cloud)...")
-
-        self.embedder = SentenceTransformer("all-MiniLM-L6-v2")
-        emb_dim = len(self.embedder.encode(["test"])[0])
-
-        self.db = QdrantVectorDB(emb_dim)
+        print("🤖 Initializing RAG Chatbot (OpenAI Embeddings)...")
+        # No local model loading here! Very fast and low memory.
+        
+        self.db = QdrantVectorDB(EMBEDDING_DIM)
         self.conversation_history = []
 
         print("✓ Chatbot ready!")
+
+    def get_embedding(self, text: str) -> List[float]:
+        # Use OpenAI API for embedding
+        response = client.embeddings.create(
+            input=text,
+            model=EMBEDDING_MODEL
+        )
+        return response.data[0].embedding
+
+    def get_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
+        # Use OpenAI API for batch embeddings
+        # OpenAI supports batching, but for huge lists we might still want to chunk calls
+        # client.embeddings.create handles lists gracefully up to a limit (usually 2048 dims or batch size)
+        
+        all_embeddings = []
+        BATCH_LIMIT = 50 # Safe batch size for API calls
+        
+        for i in range(0, len(texts), BATCH_LIMIT):
+            batch = texts[i:i+BATCH_LIMIT]
+            response = client.embeddings.create(
+                input=batch,
+                model=EMBEDDING_MODEL
+            )
+            all_embeddings.extend([d.embedding for d in response.data])
+            
+        return all_embeddings
 
     def load_documents(self, pdf_paths: List[str]):
         chunks = []
@@ -150,11 +178,10 @@ class RAGChatbot:
         if not chunks:
             return
 
-        embeddings = self.embedder.encode(
-            chunks, batch_size=32, convert_to_numpy=True, show_progress_bar=True
-        )
+        print(f"Generating embeddings for {len(chunks)} chunks via OpenAI...")
+        embeddings = self.get_embeddings_batch(chunks)
 
-        self.db.add_documents(chunks, embeddings.tolist())
+        self.db.add_documents(chunks, embeddings)
 
     def contextualize(self, query: str) -> str:
         if not self.conversation_history:
@@ -168,7 +195,8 @@ class RAGChatbot:
         # 1. Contextualize the query based on history
         query = self.contextualize(query)
 
-        emb = self.embedder.encode([query])[0].tolist()
+        # 2. Get embedding from API
+        emb = self.get_embedding(query)
 
         facts = [t for t, s in self.db.search_facts(emb) if s >= FACT_SIM_THRESHOLD]
         docs = [t for t, s in self.db.search_docs(emb) if s >= DOC_SIM_THRESHOLD]
@@ -177,27 +205,10 @@ class RAGChatbot:
 
         if context.strip():
             print("💡 Using RAG Context")
-            prompt = f"""
-You are a helpful assistant. Use the following context to answer the user's question.
-
-Context:
-{context}
-
-Question:
-{query}
-
-Answer strictly based on the context provided. If the context does not contain the answer, do NOT makeup information, just state that you cannot answer from the documents.
-"""
+            prompt = f"You are a helpful assistant. Use the following context to answer the user's question.\n\nContext:\n{context}\n\nQuestion:\n{query}\n\nAnswer strictly based on the context provided. If the context does not contain the answer, do NOT makeup information, just state that you cannot answer from the documents."
         else:
             print("🧠 Using General Knowledge")
-            prompt = f"""
-You are a helpful assistant.
-
-Question:
-{query}
-
-Answer the question based on your general knowledge.
-"""
+            prompt = f"You are a helpful assistant.\n\nQuestion:\n{query}\n\nAnswer the question based on your general knowledge."
 
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
