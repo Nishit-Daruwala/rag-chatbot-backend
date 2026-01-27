@@ -1,0 +1,30 @@
+Initializing...
+
+Query: 'what is nominal ?'
+
+--- Document Matches ---
+Score: 0.3331 | Text preview: MACHINE LEARNING MODULE - DETAILED NOTES
+UNIT 1: INTRODUCTION TO DATA PREPROCESSING
+1.1 Data Objects...
+Score: 0.1758 | Text preview: orical values, use:
+Gower’s Distance
+Convert categories using encoding methods first1. 
+2. 
+3. 
+4. 
+...
+Score: 0.1749 | Text preview: ing
+techniques. Some models require numerical inputs, while others can work with categorical data.
+1...
+Score: 0.1123 | Text preview: ics
+LAB EXERCISES
+1. Data Exploration
+Pandas for Exploration:
+importpandasaspd
+# Load data
+df=pd.rea...
+Score: 0.0995 | Text preview: es:
+# Label Encoding
+fromsklearn.preprocessing importLabelEncoder
+le=LabelEncoder ()
+df['gender' ]=l...

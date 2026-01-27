@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug RAG Chatbot</title>
+</head>
+<body>
+    <h1>Debug RAG Retrieval</h1>
+    <input type="text" id="query" placeholder="Enter question" value="what is perceptron?" style="width: 400px; padding: 10px;">
+    <button onclick="testDebug()">Test Debug</button>
+    <pre id="result" style="background: #f0f0f0; padding: 20px; margin-top: 20px;"></pre>
+
+    <script>
+        async function testDebug() {
+            const query = document.getElementById('query').value;
+            const result = document.getElementById('result');
+            
+            try {
+                const response = await fetch('http://localhost:5000/debug', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: query})
+                });
+                
+                const data = await response.json();
+                result.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                result.textContent = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
