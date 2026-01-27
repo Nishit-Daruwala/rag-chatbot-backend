@@ -7,3 +7,5 @@ PyPDF2
 openai
 numpy
 chromadb
+qdrant-client
+python-dotenv
