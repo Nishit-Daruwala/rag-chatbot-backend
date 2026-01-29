@@ -55,3 +55,8 @@ async def status():
         "facts": chatbot.db.get_facts_count(),
         "memory": len(chatbot.conversation_history)
     }
+
+@app.get("/health")
+@app.head("/health")
+def health_check(response: Response):
+    return Response(status_code=200)
