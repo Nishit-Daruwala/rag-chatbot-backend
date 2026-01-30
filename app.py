@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Response
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import os
@@ -57,6 +57,5 @@ async def status():
     }
 
 @app.get("/health")
-@app.head("/health")
-def health_check(response: Response):
-    return Response(status_code=200)
+def health_check():
+    return {"status": "ok"}
